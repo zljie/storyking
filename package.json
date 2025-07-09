@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf .next out",
+    "test:api": "node test-api.js",
+    "check-env": "node scripts/check-env.js",
+    "prebuild": "npm run check-env"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.3",

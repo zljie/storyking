@@ -3,10 +3,10 @@ import { StoryService } from '@/lib/database';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const storyId = params.id;
+    const { id: storyId } = await params;
 
     // 验证故事是否存在
     const story = await StoryService.getStoryById(storyId);
@@ -59,10 +59,10 @@ export async function POST(
 // 重新激活已完成的故事
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const storyId = params.id;
+    const { id: storyId } = await params;
 
     // 验证故事是否存在
     const story = await StoryService.getStoryById(storyId);

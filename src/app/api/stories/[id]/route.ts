@@ -3,10 +3,10 @@ import { StoryService } from '@/lib/database';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const storyId = params.id;
+    const { id: storyId } = await params;
     const story = await StoryService.getStoryById(storyId);
 
     if (!story) {
@@ -37,10 +37,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const storyId = params.id;
+    const { id: storyId } = await params;
     const body = await request.json();
 
     // 验证故事是否存在

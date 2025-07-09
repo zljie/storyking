@@ -3,10 +3,10 @@ import { SegmentService, StoryService } from '@/lib/database';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const storyId = params.id;
+    const { id: storyId } = await params;
 
     // 验证故事是否存在
     const story = await StoryService.getStoryById(storyId);
@@ -43,10 +43,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const storyId = params.id;
+    const { id: storyId } = await params;
     const body = await request.json();
 
     // 验证故事是否存在

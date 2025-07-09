@@ -57,6 +57,24 @@ npm run dev
 
 访问 [http://localhost:3000](http://localhost:3000) 查看应用。
 
+## 部署到 Vercel
+
+### 快速部署
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/storyking)
+
+### 手动部署
+
+1. **推送代码到 GitHub**
+2. **连接 Vercel**：访问 [vercel.com](https://vercel.com) 并连接你的 GitHub 仓库
+3. **配置环境变量**：在 Vercel 项目设置中添加：
+   - `DEEPSEEK_API_KEY`: 你的 DeepSeek API Key
+   - `DEEPSEEK_API_URL`: `https://api.deepseek.com/v1/chat/completions`
+   - `NODE_ENV`: `production`
+4. **部署**：Vercel 会自动构建和部署
+
+详细部署说明请查看 [DEPLOYMENT.md](./DEPLOYMENT.md)。
+
 ## 使用说明
 
 ### 故事生成器
