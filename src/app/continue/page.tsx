@@ -3,8 +3,31 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Users, Plus, Send } from 'lucide-react';
+import { ArrowLeft, Users, Plus, Send, Loader2 } from 'lucide-react';
 import { Story, StorySegment, StoryParameters } from '@/types/database';
+
+// 加载动画组件
+const LoadingAnimation = ({ isSubmitting }: { isSubmitting: boolean }) => {
+  if (!isSubmitting) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
+        <div className="text-center">
+          <div className="mb-4">
+            <Loader2 className="h-8 w-8 text-purple-500 animate-spin mx-auto" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            正在提交续写...
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            请稍候，正在保存您的故事续写
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 function ContinuePageContent() {
   const searchParams = useSearchParams();
@@ -22,9 +45,23 @@ function ContinuePageContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showParameterForm, setShowParameterForm] = useState(true); // 默认显示参数表单
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showStories, setShowStories] = useState(true);
+  const [isGeneratingParams, setIsGeneratingParams] = useState(false);
 
   // 从URL参数获取初始故事
   const initialStory = searchParams?.get('story');
+  const initialStoryId = searchParams?.get('storyId');
+
+  // 自动选中 storyId
+  useEffect(() => {
+    if (initialStoryId && stories.length > 0 && !selectedStory) {
+      const found = stories.find(s => s.id === initialStoryId);
+      if (found) {
+        handleStorySelect(found);
+        setShowStories(false);
+      }
+    }
+  }, [initialStoryId, stories, selectedStory]);
 
   useEffect(() => {
     loadActiveStories();
@@ -70,6 +107,7 @@ function ContinuePageContent() {
       action: '',
       mood: ''
     });
+    setShowStories(false); // 选中后折叠
   };
 
   const handleParameterChange = (key: keyof StoryParameters, value: string | string[]) => {
@@ -245,8 +283,33 @@ function ContinuePageContent() {
   const lastStoryParameters = segments.length > 0 ? segments[segments.length - 1].story_parameters : undefined;
   const lastCharacters = lastStoryParameters?.characters;
 
+  // AI生成参数
+  const handleAIGenerateParameters = async () => {
+    if (!selectedStory) return;
+    setIsGeneratingParams(true);
+    try {
+      // 取风格关键词，兼容无 genre 字段
+      const genre = (selectedStory as any).genre || 'fantasy';
+      const prompt = `请为下面的故事续写生成一组有趣的参数，包括时间、地点、人物、事件和氛围，要求新颖、有创意，适合${genre}，并能激发后续创作灵感。`;
+      const response = await fetch(`/api/generate-parameters?style=${encodeURIComponent(genre)}&prompt=${encodeURIComponent(prompt)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.parameters) {
+          setNewParameters(data.parameters);
+        }
+      }
+    } catch (error) {
+      console.error('AI生成参数失败', error);
+    } finally {
+      setIsGeneratingParams(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      {/* 加载动画 */}
+      <LoadingAnimation isSubmitting={isSubmitting} />
+      
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center mb-8">
@@ -257,11 +320,27 @@ function ContinuePageContent() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">故事接龙</h1>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Panel - Story List */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        {/* 顶部故事选择栏 */}
+        <div className="mb-6">
+          {selectedStory && !showStories ? (
+            <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg px-4 py-3">
+              <div className="font-semibold text-lg text-purple-800 dark:text-purple-200">
+                当前故事：{selectedStory.title}
+              </div>
+              <button
+                onClick={() => setShowStories(true)}
+                className="text-sm text-purple-600 hover:text-purple-800 border border-purple-300 dark:border-purple-700 rounded px-3 py-1 bg-white dark:bg-gray-800"
+              >
+                切换故事
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {/* 活跃故事列表（可折叠） */}
+        {showStories && !initialStoryId && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">活跃故事</h2>
-            
             {initialStory && (
               <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">新生成的故事</h3>
@@ -281,13 +360,10 @@ function ContinuePageContent() {
                           status: 'active'
                         }),
                       });
-
                       if (response.ok) {
                         const result = await response.json();
                         if (result.success && result.story) {
-                          // 重新加载故事列表
                           await loadActiveStories();
-                          // 选择新创建的故事
                           handleStorySelect(result.story);
                         } else {
                           console.error('Failed to create story:', result.error);
@@ -305,7 +381,6 @@ function ContinuePageContent() {
                 </button>
               </div>
             )}
-
             <div className="space-y-3">
               {stories.map((story) => (
                 <div
@@ -330,7 +405,6 @@ function ContinuePageContent() {
                 </div>
               ))}
             </div>
-
             {stories.length === 0 && (
               <div className="text-center py-8">
                 <p className="text-gray-500 dark:text-gray-400 mb-4">
@@ -346,11 +420,13 @@ function ContinuePageContent() {
               </div>
             )}
           </div>
+        )}
 
-          {/* Middle Panel - Story Content */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        {/* 三栏布局区域 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* 故事内容展示，左侧2/3 */}
+          <div className="md:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">故事内容</h2>
-            
             {selectedStory ? (
               <div className="space-y-4">
                 <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -361,7 +437,6 @@ function ContinuePageContent() {
                     {selectedStory.initial_prompt}
                   </p>
                 </div>
-
                 {segments.map((segment, index) => (
                   <div key={segment.id} className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
@@ -394,10 +469,9 @@ function ContinuePageContent() {
             )}
           </div>
 
-          {/* Right Panel - Add Continuation */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          {/* 续写输入区，右侧1/3 */}
+          <div className="md:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">添加续写</h2>
-            
             {selectedStory ? (
               <div className="space-y-4">
                 <div>
@@ -466,12 +540,21 @@ function ContinuePageContent() {
                     <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       故事参数设定 <span className="text-red-500">*</span>
                     </h3>
-                    <button
-                      onClick={() => setShowParameterForm(!showParameterForm)}
-                      className="text-xs text-purple-600 hover:text-purple-700"
-                    >
-                      {showParameterForm ? '隐藏' : '显示'} 参数表单
-                    </button>
+                    <div className="flex gap-2 items-center">
+                      <button
+                        onClick={handleAIGenerateParameters}
+                        disabled={isGeneratingParams}
+                        className="text-xs text-blue-600 hover:text-blue-800 border border-blue-300 dark:border-blue-700 rounded px-2 py-1 bg-white dark:bg-gray-800 disabled:opacity-50"
+                      >
+                        {isGeneratingParams ? 'AI生成中...' : 'AI生成参数'}
+                      </button>
+                      <button
+                        onClick={() => setShowParameterForm(!showParameterForm)}
+                        className="text-xs text-purple-600 hover:text-purple-700"
+                      >
+                        {showParameterForm ? '隐藏' : '显示'} 参数表单
+                      </button>
+                    </div>
                   </div>
 
                   {showParameterForm && (
@@ -565,10 +648,19 @@ function ContinuePageContent() {
                 <button
                   onClick={submitContinuation}
                   disabled={!newSegment.trim() || isSubmitting || validationErrors.length > 0}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
-                  <Send className="h-4 w-4 mr-2" />
-                  {isSubmitting ? '提交中...' : validationErrors.length > 0 ? '请修正问题后提交' : '提交续写'}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      提交中...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      {validationErrors.length > 0 ? '请修正问题后提交' : '提交续写'}
+                    </>
+                  )}
                 </button>
               </div>
             ) : (

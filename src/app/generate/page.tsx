@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, RefreshCw, Zap, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Sparkles, RefreshCw, Zap, AlertCircle, Loader2 } from 'lucide-react';
 import { StoryParameters } from '@/types/database';
 
 const STORY_STYLES = [
@@ -19,6 +19,64 @@ const STORY_LENGTHS = [
   { value: 'long', label: '详细', description: '详细的背景描述' },
 ];
 
+// 加载动画组件
+const LoadingAnimation = ({ isGenerating, aiEnabled }: { isGenerating: boolean; aiEnabled: boolean }) => {
+  if (!isGenerating) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl">
+        <div className="text-center">
+          {/* 旋转的AI图标 */}
+          <div className="mb-6">
+            {aiEnabled ? (
+              <div className="relative">
+                <Zap className="h-16 w-16 text-purple-500 mx-auto mb-4" />
+                <Loader2 className="h-8 w-8 text-purple-500 animate-spin absolute top-2 left-1/2 transform -translate-x-1/2" />
+              </div>
+            ) : (
+              <div className="relative">
+                <Sparkles className="h-16 w-16 text-purple-500 mx-auto mb-4" />
+                <Loader2 className="h-8 w-8 text-purple-500 animate-spin absolute top-2 left-1/2 transform -translate-x-1/2" />
+              </div>
+            )}
+          </div>
+
+          {/* 标题 */}
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            {aiEnabled ? 'AI正在创作故事...' : '正在生成故事...'}
+          </h3>
+
+          {/* 描述 */}
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            {aiEnabled 
+              ? 'AI正在根据您的参数创作独特的故事开头，请稍候...'
+              : '正在根据模板生成故事开头，请稍候...'
+            }
+          </p>
+
+          {/* 进度条 */}
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4">
+            <div className="bg-purple-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          </div>
+
+          {/* 动画点 */}
+          <div className="flex justify-center space-x-1">
+            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          </div>
+
+          {/* 提示文本 */}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+            {aiEnabled ? '🤖 AI正在思考中...' : '✨ 正在组合故事元素...'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function GeneratePage() {
   const [parameters, setParameters] = useState<StoryParameters>({
     time: '',
@@ -32,6 +90,8 @@ export default function GeneratePage() {
   const [length, setLength] = useState('medium');
   const [generatedStory, setGeneratedStory] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [displayedStory, setDisplayedStory] = useState('');
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiProvider, setAiProvider] = useState('Template Generator');
 
@@ -86,6 +146,7 @@ export default function GeneratePage() {
 
   const generateStory = async () => {
     setIsGenerating(true);
+    setDisplayedStory('');
     try {
       const response = await fetch('/api/generate-story', {
         method: 'POST',
@@ -105,6 +166,19 @@ export default function GeneratePage() {
       if (response.ok) {
         const data = await response.json();
         setGeneratedStory(data.story);
+        
+        // 开始打字机效果
+        setIsTyping(true);
+        let currentText = '';
+        const storyText = data.story;
+        
+        for (let i = 0; i < storyText.length; i++) {
+          await new Promise(resolve => setTimeout(resolve, 30)); // 30ms 延迟
+          currentText += storyText[i];
+          setDisplayedStory(currentText);
+        }
+        
+        setIsTyping(false);
       } else {
         console.error('Failed to generate story');
       }
@@ -129,6 +203,9 @@ export default function GeneratePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      {/* 加载动画 */}
+      <LoadingAnimation isGenerating={isGenerating} aiEnabled={aiEnabled} />
+      
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center mb-8">
@@ -321,14 +398,23 @@ export default function GeneratePage() {
               <button
                 onClick={generateStory}
                 disabled={isGenerating}
-                className="flex-1 flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
-                {aiEnabled ? (
-                  <Zap className="h-4 w-4 mr-2" />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {aiEnabled ? 'AI生成中...' : '生成中...'}
+                  </>
                 ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <>
+                    {aiEnabled ? (
+                      <Zap className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    {aiEnabled ? 'AI生成故事' : '生成故事'}
+                  </>
                 )}
-                {isGenerating ? (aiEnabled ? 'AI生成中...' : '生成中...') : (aiEnabled ? 'AI生成故事' : '生成故事')}
               </button>
             </div>
           </div>
@@ -341,7 +427,8 @@ export default function GeneratePage() {
               <div className="space-y-4">
                 <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <p className="text-gray-900 dark:text-white leading-relaxed">
-                    {generatedStory}
+                    {isTyping ? displayedStory : generatedStory}
+                    {isTyping && <span className="animate-pulse">|</span>}
                   </p>
                 </div>
                 
