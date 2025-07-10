@@ -1,0 +1,19 @@
+# 忽略开发文件
+.env.local
+.env.development
+.env.test
+
+# 忽略文档和测试文件
+README.md
+DEPLOYMENT.md
+VERCEL_DEPLOYMENT.md
+DEPLOYMENT_CHECKLIST.md
+test-vercel-env.js
+test-api.js
+
+# 忽略开发工具
+.vscode/
+.idea/
+
+# 保留构建必需的文件
+# 不要忽略 package.json, package-lock.json, next.config.ts, tailwind.config.js 等 
