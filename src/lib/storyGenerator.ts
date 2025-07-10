@@ -32,11 +32,29 @@ const STORY_TEMPLATES = {
     locations: ['热带雨林', '沙漠绿洲', '雪山之巅', '深海', '火山口', '古代遗迹', '无人岛'],
     characters: ['冒险家', '向导', '考古学家', '探险队员', '当地居民', '野生动物专家', '寻宝者'],
     actions: ['寻找失落宝藏', '穿越危险地带', '拯救队友', '逃离陷阱', '征服高峰', '探索未知领域']
+  },
+  horror: {
+    times: ['深夜', '午夜时分', '黎明前', '暴风雨夜', '月圆之夜'],
+    locations: ['废弃医院', '古老墓地', '阴森森林', '荒废小镇', '地下室', '老旧房屋', '迷雾山谷'],
+    characters: ['勇敢的调查员', '神秘访客', '当地居民', '失踪者', '守夜人', '研究员', '幸存者'],
+    actions: ['调查超自然现象', '寻找失踪的人', '逃离危险', '解开诅咒', '对抗邪恶力量', '寻求真相']
+  },
+  comedy: {
+    times: ['阳光明媚的早晨', '热闹的午餐时间', '周末的下午', '节日庆典', '平凡的一天'],
+    locations: ['热闹的餐厅', '办公室', '学校', '公园', '商场', '家庭聚会', '社区中心'],
+    characters: ['搞笑的朋友', '古怪的邻居', '幽默的老师', '可爱的宠物', '滑稽的同事', '有趣的家人'],
+    actions: ['制造意外的笑话', '参加搞笑比赛', '解决荒谬的问题', '策划恶作剧', '误会连连', '化解尴尬']
+  },
+  drama: {
+    times: ['人生转折点', '重要的一天', '多年以后', '关键时刻', '命运的十字路口'],
+    locations: ['家庭客厅', '医院', '法庭', '学校', '工作场所', '老家', '城市街头'],
+    characters: ['坚强的母亲', '迷茫的青年', '睿智的长者', '奋斗的父亲', '叛逆的孩子', '忠诚的朋友'],
+    actions: ['面对人生选择', '处理家庭矛盾', '追求梦想', '克服困难', '寻找自我', '重建关系']
   }
-};
+} as const;
 
 // 随机选择函数
-function randomChoice<T>(array: T[]): T {
+function randomChoice<T>(array: readonly T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
 
@@ -63,9 +81,9 @@ export async function generateStoryBeginningWithAI(request: StoryGenerationReque
 // 生成故事开头（模板方法，作为备用）
 export function generateStoryBeginning(request: StoryGenerationRequest): string {
   const { parameters, style = 'fantasy', length = 'medium' } = request;
-  
+
   // 获取对应类型的模板
-  const template = STORY_TEMPLATES[style] || STORY_TEMPLATES.fantasy;
+  const template = STORY_TEMPLATES[style as keyof typeof STORY_TEMPLATES] || STORY_TEMPLATES.fantasy;
   
   // 使用用户提供的参数或随机生成
   const time = parameters.time || randomChoice(template.times);
@@ -99,9 +117,12 @@ function generateMood(style: string): string {
     'sci-fi': ['未来感', '科技感', '神秘', '惊险', '创新'],
     romance: ['温馨', '浪漫', '甜蜜', '感人', '温暖'],
     mystery: ['悬疑', '紧张', '神秘', '惊悚', '扣人心弦'],
-    adventure: ['刺激', '冒险', '惊险', '激动人心', '充满挑战']
+    adventure: ['刺激', '冒险', '惊险', '激动人心', '充满挑战'],
+    horror: ['恐怖', '阴森', '诡异', '令人不安', '毛骨悚然'],
+    comedy: ['搞笑', '轻松', '幽默', '欢乐', '有趣'],
+    drama: ['感人', '深刻', '真实', '动人', '发人深省']
   };
-  
+
   return randomChoice(moods[style as keyof typeof moods] || moods.fantasy);
 }
 

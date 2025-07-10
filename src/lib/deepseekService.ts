@@ -1,4 +1,4 @@
-import { StoryParameters, StoryGenerationRequest } from '@/types/database';
+import { StoryGenerationRequest } from '@/types/database';
 
 interface DeepSeekMessage {
   role: 'system' | 'user' | 'assistant';

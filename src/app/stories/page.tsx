@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Users, Clock, BookOpen, Filter, Search } from 'lucide-react';
 import { Story, StorySegment } from '@/types/database';
@@ -14,13 +14,32 @@ export default function StoriesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'archived'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
+  const filterStories = useCallback(() => {
+    let filtered = stories;
+
+    // 状态过滤
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(story => story.status === statusFilter);
+    }
+
+    // 搜索过滤
+    if (searchTerm) {
+      filtered = filtered.filter(story =>
+        story.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        story.initial_prompt.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    setFilteredStories(filtered);
+  }, [stories, statusFilter, searchTerm]);
+
   useEffect(() => {
     loadStories();
   }, []);
 
   useEffect(() => {
     filterStories();
-  }, [stories, searchTerm, statusFilter]);
+  }, [filterStories]);
 
   useEffect(() => {
     if (selectedStory) {
@@ -55,24 +74,7 @@ export default function StoriesPage() {
     }
   };
 
-  const filterStories = () => {
-    let filtered = stories;
 
-    // 状态过滤
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(story => story.status === statusFilter);
-    }
-
-    // 搜索过滤
-    if (searchTerm) {
-      filtered = filtered.filter(story =>
-        story.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        story.initial_prompt.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredStories(filtered);
-  };
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -146,7 +148,7 @@ export default function StoriesPage() {
 
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'completed' | 'archived')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="all">所有状态</option>

@@ -1,14 +1,11 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  User, 
-  Story, 
-  StorySegment, 
-  StoryParticipant,
-  StoryParameters,
-  StoryGenerationRequest,
-  StoryContinuationRequest 
+import {
+  User,
+  Story,
+  StorySegment,
+  StoryParticipant
 } from '@/types/database';
 
 // 数据文件路径

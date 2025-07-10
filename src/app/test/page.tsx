@@ -7,7 +7,7 @@ interface TestResult {
   name: string;
   status: 'pending' | 'success' | 'error';
   message?: string;
-  data?: any;
+  data?: unknown;
 }
 
 export default function TestPage() {
@@ -43,7 +43,7 @@ export default function TestPage() {
           message: `AI状态: ${aiData.ai_enabled ? '已启用' : '未启用'} (${aiData.provider})`,
           data: aiData
         });
-      } catch (error) {
+      } catch {
         updateTest(0, { status: 'error', message: '检查失败' });
       }
 
@@ -57,7 +57,7 @@ export default function TestPage() {
           message: '参数生成成功',
           data: paramData
         });
-      } catch (error) {
+      } catch {
         updateTest(1, { status: 'error', message: '生成失败' });
       }
 
@@ -85,7 +85,7 @@ export default function TestPage() {
           message: storyData.success ? '故事生成成功' : storyData.error,
           data: storyData
         });
-      } catch (error) {
+      } catch {
         updateTest(2, { status: 'error', message: '生成失败' });
       }
 
@@ -99,7 +99,7 @@ export default function TestPage() {
           message: `获取成功，共${storiesData.count || 0}个故事`,
           data: storiesData
         });
-      } catch (error) {
+      } catch {
         updateTest(3, { status: 'error', message: '获取失败' });
       }
 
@@ -120,7 +120,7 @@ export default function TestPage() {
           message: userData.success ? '用户创建成功' : userData.error,
           data: userData
         });
-      } catch (error) {
+      } catch {
         updateTest(4, { status: 'error', message: '创建失败' });
       }
 
@@ -181,7 +181,7 @@ export default function TestPage() {
                     </div>
                   </div>
                   
-                  {test.data && (
+                  {test.data ? (
                     <details className="text-xs">
                       <summary className="cursor-pointer text-blue-600 dark:text-blue-400">
                         查看数据
@@ -190,7 +190,7 @@ export default function TestPage() {
                         {JSON.stringify(test.data, null, 2)}
                       </pre>
                     </details>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -203,8 +203,8 @@ export default function TestPage() {
             <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
               <p>• 此页面用于测试系统的核心API功能</p>
               <p>• 绿色勾号表示测试通过，红色叉号表示测试失败</p>
-              <p>• 如果AI状态显示"未启用"，请配置DeepSeek API Key</p>
-              <p>• 点击"查看数据"可以查看API返回的详细信息</p>
+              <p>• 如果AI状态显示&ldquo;未启用&rdquo;，请配置DeepSeek API Key</p>
+              <p>• 点击&ldquo;查看数据&rdquo;可以查看API返回的详细信息</p>
               <p>• 建议在开发过程中定期运行测试以确保功能正常</p>
             </div>
           </div>

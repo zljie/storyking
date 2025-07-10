@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Users, Plus, Send } from 'lucide-react';
 import { Story, StorySegment, StoryParameters } from '@/types/database';
 
-export default function ContinuePage() {
+function ContinuePageContent() {
   const searchParams = useSearchParams();
   const [stories, setStories] = useState<Story[]>([]);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -407,5 +407,28 @@ export default function ContinuePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ContinuePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center mb-8">
+            <Link href="/" className="flex items-center text-gray-600 hover:text-purple-600 mr-4">
+              <ArrowLeft className="h-5 w-5 mr-1" />
+              返回首页
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">故事接龙</h1>
+          </div>
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-gray-400">加载中...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <ContinuePageContent />
+    </Suspense>
   );
 }

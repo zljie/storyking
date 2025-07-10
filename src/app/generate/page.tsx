@@ -364,7 +364,7 @@ export default function GeneratePage() {
               <div className="text-center py-12">
                 <Sparkles className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">
-                  设置参数并点击"生成故事"来创建你的故事开头
+                  设置参数并点击&ldquo;生成故事&rdquo;来创建你的故事开头
                 </p>
               </div>
             )}
