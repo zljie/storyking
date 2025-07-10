@@ -20,7 +20,8 @@ function ContinuePageContent() {
     mood: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showParameterForm, setShowParameterForm] = useState(false);
+  const [showParameterForm, setShowParameterForm] = useState(true); // 默认显示参数表单
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // 从URL参数获取初始故事
   const initialStory = searchParams?.get('story');
@@ -76,6 +77,14 @@ function ContinuePageContent() {
       ...prev,
       [key]: value
     }));
+    
+    // 实时验证参数
+    setTimeout(() => {
+      validateParameters();
+      if (newSegment.trim()) {
+        validateContinuation();
+      }
+    }, 100);
   };
 
   const handleCharacterChange = (index: number, value: string) => {
@@ -85,6 +94,14 @@ function ContinuePageContent() {
       ...prev,
       characters: newCharacters
     }));
+    
+    // 实时验证参数
+    setTimeout(() => {
+      validateParameters();
+      if (newSegment.trim()) {
+        validateContinuation();
+      }
+    }, 100);
   };
 
   const addCharacter = () => {
@@ -102,8 +119,82 @@ function ContinuePageContent() {
     }));
   };
 
+  // 验证故事参数是否填写
+  const validateParameters = (): boolean => {
+    const errors: string[] = [];
+    
+    if (!newParameters.time?.trim()) {
+      errors.push('请填写时间设定');
+    }
+    if (!newParameters.location?.trim()) {
+      errors.push('请填写地点设定');
+    }
+    if (!newParameters.action?.trim()) {
+      errors.push('请填写事件设定');
+    }
+    if (!newParameters.mood?.trim()) {
+      errors.push('请填写情绪氛围');
+    }
+    if (!newParameters.characters || newParameters.characters.length === 0 || 
+        newParameters.characters.every(char => !char.trim())) {
+      errors.push('请至少添加一个人物');
+    }
+    
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
+  // 验证新续写是否满足上一个用户的参数要求
+  const validateContinuation = (): boolean => {
+    if (segments.length === 0) return true; // 如果是第一段，不需要验证
+    
+    const lastSegment = segments[segments.length - 1];
+    if (!lastSegment.story_parameters) return true; // 如果上一段没有参数，不需要验证
+    
+    const errors: string[] = [];
+    const lastParams = lastSegment.story_parameters;
+    
+    // 检查新续写是否提到了上一段设定的时间
+    if (lastParams.time && !newSegment.toLowerCase().includes(lastParams.time.toLowerCase())) {
+      errors.push(`续写应该体现上一段设定的时间: ${lastParams.time}`);
+    }
+    
+    // 检查新续写是否提到了上一段设定的地点
+    if (lastParams.location && !newSegment.toLowerCase().includes(lastParams.location.toLowerCase())) {
+      errors.push(`续写应该体现上一段设定的地点: ${lastParams.location}`);
+    }
+    
+    // 检查新续写是否提到了上一段设定的人物
+    if (lastParams.characters && lastParams.characters.length > 0) {
+      const hasCharacter = lastParams.characters.some(character => 
+        character && newSegment.toLowerCase().includes(character.toLowerCase())
+      );
+      if (!hasCharacter) {
+        errors.push(`续写应该包含上一段设定的人物: ${lastParams.characters.join(', ')}`);
+      }
+    }
+    
+    // 检查新续写是否体现了上一段设定的情绪氛围
+    if (lastParams.mood && !newSegment.toLowerCase().includes(lastParams.mood.toLowerCase())) {
+      errors.push(`续写应该体现上一段设定的情绪氛围: ${lastParams.mood}`);
+    }
+    
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
   const submitContinuation = async () => {
     if (!selectedStory || !newSegment.trim()) return;
+
+    // 验证参数填写
+    if (!validateParameters()) {
+      return;
+    }
+
+    // 验证续写内容
+    if (!validateContinuation()) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -120,19 +211,29 @@ function ContinuePageContent() {
       });
 
       if (response.ok) {
-        // 重新加载故事片段
-        await loadStorySegments(selectedStory.id);
-        setNewSegment('');
-        setNewParameters({
-          time: '',
-          location: '',
-          characters: [''],
-          action: '',
-          mood: ''
-        });
-        setShowParameterForm(false);
+        const result = await response.json();
+        if (result.success) {
+          // 重新加载故事片段
+          await loadStorySegments(selectedStory.id);
+          setNewSegment('');
+          setNewParameters({
+            time: '',
+            location: '',
+            characters: [''],
+            action: '',
+            mood: ''
+          });
+          setShowParameterForm(true);
+          setValidationErrors([]);
+        } else {
+          console.error('Failed to submit continuation:', result.error);
+          // 显示错误信息给用户
+          setValidationErrors([result.error || '提交失败，请重试']);
+        }
       } else {
-        console.error('Failed to submit continuation');
+        const errorData = await response.json().catch(() => ({ error: '提交失败，请重试' }));
+        console.error('Failed to submit continuation:', errorData);
+        setValidationErrors([errorData.error || '提交失败，请重试']);
       }
     } catch (error) {
       console.error('Error submitting continuation:', error);
@@ -140,6 +241,9 @@ function ContinuePageContent() {
       setIsSubmitting(false);
     }
   };
+
+  const lastStoryParameters = segments.length > 0 ? segments[segments.length - 1].story_parameters : undefined;
+  const lastCharacters = lastStoryParameters?.characters;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
@@ -163,19 +267,37 @@ function ContinuePageContent() {
                 <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">新生成的故事</h3>
                 <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">{initialStory}</p>
                 <button
-                  onClick={() => {
-                    // 创建临时故事对象用于接龙
-                    const tempStory: Story = {
-                      id: 'temp-' + Date.now(),
-                      title: '新故事',
-                      initial_prompt: initialStory,
-                      status: 'active',
-                      created_by: 'temp-user',
-                      created_at: new Date().toISOString(),
-                      updated_at: new Date().toISOString(),
-                      current_participants: 1
-                    };
-                    handleStorySelect(tempStory);
+                  onClick={async () => {
+                    try {
+                      // 将新故事保存到数据库
+                      const response = await fetch('/api/stories', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          title: '新故事',
+                          initial_prompt: initialStory,
+                          status: 'active'
+                        }),
+                      });
+
+                      if (response.ok) {
+                        const result = await response.json();
+                        if (result.success && result.story) {
+                          // 重新加载故事列表
+                          await loadActiveStories();
+                          // 选择新创建的故事
+                          handleStorySelect(result.story);
+                        } else {
+                          console.error('Failed to create story:', result.error);
+                        }
+                      } else {
+                        console.error('Failed to create story');
+                      }
+                    } catch (error) {
+                      console.error('Error creating story:', error);
+                    }
                   }}
                   className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
                 >
@@ -279,31 +401,84 @@ function ContinuePageContent() {
             {selectedStory ? (
               <div className="space-y-4">
                 <div>
+                  {/* 显示上一段的参数要求 */}
+                  {segments.length > 0 && segments[segments.length - 1].story_parameters && (
+                    <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <h4 className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                        上一段设定的参数要求：
+                      </h4>
+                      <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                        {segments[segments.length - 1].story_parameters?.time && (
+                          <div>时间: {segments[segments.length - 1].story_parameters?.time}</div>
+                        )}
+                        {segments[segments.length - 1].story_parameters?.location && (
+                          <div>地点: {segments[segments.length - 1].story_parameters?.location}</div>
+                        )}
+                        {lastCharacters && Array.isArray(lastCharacters) && lastCharacters.length > 0 && (
+                          <div>人物: {lastCharacters.join(', ')}</div>
+                        )}
+                        {segments[segments.length - 1].story_parameters?.mood && (
+                          <div>情绪: {segments[segments.length - 1].story_parameters?.mood}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     你的续写内容
                   </label>
                   <textarea
                     value={newSegment}
-                    onChange={(e) => setNewSegment(e.target.value)}
+                    onChange={(e) => {
+                      setNewSegment(e.target.value);
+                      // 实时验证续写内容
+                      setTimeout(() => {
+                        if (e.target.value.trim()) {
+                          validateContinuation();
+                        }
+                      }, 100);
+                    }}
                     placeholder="在这里写下你的故事续写..."
                     rows={6}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white resize-none"
                   />
                 </div>
 
+                {/* 验证错误提示 */}
+                {validationErrors.length > 0 && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <h4 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+                      需要修正的问题：
+                    </h4>
+                    <ul className="text-xs text-red-700 dark:text-red-300 space-y-1">
+                      {validationErrors.map((error, index) => (
+                        <li key={index} className="flex items-start">
+                          <span className="mr-1">•</span>
+                          {error}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <div>
-                  <button
-                    onClick={() => setShowParameterForm(!showParameterForm)}
-                    className="text-sm text-purple-600 hover:text-purple-700 mb-3"
-                  >
-                    {showParameterForm ? '隐藏' : '添加'} 故事参数
-                  </button>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      故事参数设定 <span className="text-red-500">*</span>
+                    </h3>
+                    <button
+                      onClick={() => setShowParameterForm(!showParameterForm)}
+                      className="text-xs text-purple-600 hover:text-purple-700"
+                    >
+                      {showParameterForm ? '隐藏' : '显示'} 参数表单
+                    </button>
+                  </div>
 
                   {showParameterForm && (
-                    <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="space-y-3 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                       <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          新的时间设定
+                          新的时间设定 <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -316,7 +491,7 @@ function ContinuePageContent() {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          新的地点设定
+                          新的地点设定 <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -329,7 +504,7 @@ function ContinuePageContent() {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          新增人物
+                          新增人物 <span className="text-red-500">*</span>
                         </label>
                         {(newParameters.characters || ['']).map((character, index) => (
                           <div key={index} className="flex gap-1 mb-1">
@@ -360,7 +535,7 @@ function ContinuePageContent() {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          新的事件
+                          新的事件 <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -373,7 +548,7 @@ function ContinuePageContent() {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          情绪氛围
+                          情绪氛围 <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -389,11 +564,11 @@ function ContinuePageContent() {
 
                 <button
                   onClick={submitContinuation}
-                  disabled={!newSegment.trim() || isSubmitting}
+                  disabled={!newSegment.trim() || isSubmitting || validationErrors.length > 0}
                   className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {isSubmitting ? '提交中...' : '提交续写'}
+                  {isSubmitting ? '提交中...' : validationErrors.length > 0 ? '请修正问题后提交' : '提交续写'}
                 </button>
               </div>
             ) : (
