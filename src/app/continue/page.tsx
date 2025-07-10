@@ -288,8 +288,16 @@ function ContinuePageContent() {
     if (!selectedStory) return;
     setIsGeneratingParams(true);
     try {
-      // 取风格关键词，兼容无 genre 字段
-      const genre = (selectedStory as any).genre || 'fantasy';
+      // 类型安全地获取 genre 字段
+      let genre = 'fantasy';
+      if (
+        selectedStory &&
+        typeof selectedStory === 'object' &&
+        'genre' in selectedStory &&
+        typeof (selectedStory as { genre?: string }).genre === 'string'
+      ) {
+        genre = (selectedStory as { genre?: string }).genre || 'fantasy';
+      }
       const prompt = `请为下面的故事续写生成一组有趣的参数，包括时间、地点、人物、事件和氛围，要求新颖、有创意，适合${genre}，并能激发后续创作灵感。`;
       const response = await fetch(`/api/generate-parameters?style=${encodeURIComponent(genre)}&prompt=${encodeURIComponent(prompt)}`);
       if (response.ok) {
