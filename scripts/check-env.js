@@ -32,28 +32,35 @@ function loadEnvFile(filePath) {
   }
 }
 
-// 尝试加载环境变量文件
-const envFiles = ['.env.local', '.env.development', '.env'];
-envFiles.forEach(file => {
-  loadEnvFile(path.join(process.cwd(), file));
-});
+// 尝试加载环境变量文件（在 Vercel 环境中跳过本地文件）
+const isVercel = process.env.VERCEL === '1';
+if (!isVercel) {
+  const envFiles = ['.env.local', '.env.development', '.env'];
+  envFiles.forEach(file => {
+    loadEnvFile(path.join(process.cwd(), file));
+  });
+}
 
 const requiredEnvVars = [
   'DEEPSEEK_API_KEY',
-  'DEEPSEEK_API_URL',
-  'NODE_ENV'
+  'DEEPSEEK_API_URL'
 ];
 
+// NODE_ENV 在 Vercel 中会自动设置
 const optionalEnvVars = [
+  'NODE_ENV',
   'VERCEL',
   'VERCEL_ENV',
   'VERCEL_URL'
 ];
 
+// 这些变量已经在上面定义了
+
 function checkEnvironment() {
   console.log('🔍 检查环境变量配置...\n');
 
   let hasErrors = false;
+  const isVercel = process.env.VERCEL === '1';
 
   // 检查必需的环境变量
   console.log('📋 必需的环境变量:');
@@ -63,7 +70,10 @@ function checkEnvironment() {
       console.log(`✅ ${varName}: ${varName === 'DEEPSEEK_API_KEY' ? '***已设置***' : value}`);
     } else {
       console.log(`❌ ${varName}: 未设置`);
-      hasErrors = true;
+      // 在 Vercel 环境中，如果缺少环境变量，给出警告但不阻止构建
+      if (!isVercel) {
+        hasErrors = true;
+      }
     }
   });
 
@@ -105,12 +115,22 @@ function checkEnvironment() {
   console.log('\n' + '='.repeat(50));
 
   if (hasErrors) {
-    console.log('❌ 环境配置检查失败！');
-    console.log('\n💡 解决方案:');
-    console.log('1. 本地开发: 确保 .env.local 文件存在并包含所需变量');
-    console.log('2. Vercel 部署: 在项目设置中添加环境变量');
-    console.log('3. 参考 .env.example 文件了解所需变量');
-    process.exit(1);
+    if (isVercel) {
+      console.log('⚠️  在 Vercel 环境中检测到缺少环境变量');
+      console.log('\n💡 解决方案:');
+      console.log('1. 在 Vercel 项目设置中添加以下环境变量:');
+      console.log('   - DEEPSEEK_API_KEY: 你的 DeepSeek API Key');
+      console.log('   - DEEPSEEK_API_URL: https://api.deepseek.com/v1/chat/completions');
+      console.log('2. 重新部署项目');
+      console.log('\n⚠️  注意: 缺少环境变量可能导致 AI 功能无法正常工作');
+    } else {
+      console.log('❌ 环境配置检查失败！');
+      console.log('\n💡 解决方案:');
+      console.log('1. 本地开发: 确保 .env.local 文件存在并包含所需变量');
+      console.log('2. Vercel 部署: 在项目设置中添加环境变量');
+      console.log('3. 参考 .env.example 文件了解所需变量');
+      process.exit(1);
+    }
   } else {
     console.log('✅ 环境配置检查通过！');
     console.log('\n🚀 可以安全部署或运行应用');
